@@ -30,6 +30,9 @@ func ParseType(args []string) (RunType, []string) {
 		case "-local":
 			t = LOCAL
 			continue
+		case "-cli":
+			t = CLI
+			continue
 		}
 
 		resArgs = append(resArgs, arg)
@@ -95,6 +98,8 @@ func main() {
 		break
 	case SERVER:
 		server(MakeRedisJobSystem(config.Redis), config)
+		break
+	case CLI:
 		break
 	case LOCAL:
 		jobsystem, err := MakeLocalJobSystem(config.Paths.Results)
