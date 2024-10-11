@@ -111,8 +111,7 @@ func main() {
 	}
 
 	if err := config.CheckPaths(); err != nil {
-		// TODO
-		// panic(err)
+		panic(err)
 	}
 
 	switch t {

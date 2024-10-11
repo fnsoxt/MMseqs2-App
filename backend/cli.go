@@ -2,9 +2,7 @@ package main
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -424,25 +422,8 @@ func cli(jobrequest JobRequest, jobsystem JobSystem, config ConfigRoot) {
 		mailer = config.Mail.Mailer.GetTransport()
 	}
 
-	jobFile := filepath.Join(config.Paths.Results, string(jobrequest.Id), "job.json")
-
-	f, err := os.Open(jobFile)
-	if err != nil {
-		jobsystem.SetStatus(jobrequest.Id, StatusError)
-		log.Print(err)
-	}
-
-	var job JobRequest
-	dec := json.NewDecoder(bufio.NewReader(f))
-	err = dec.Decode(&job)
-	f.Close()
-	if err != nil {
-		jobsystem.SetStatus(jobrequest.Id, StatusError)
-		log.Print(err)
-	}
-
 	jobsystem.SetStatus(jobrequest.Id, StatusRunning)
-	err = RunJobByCli(job, config)
+	err := RunJobByCli(jobrequest, config)
 	mailTemplate := config.Mail.Templates.Success
 	switch err.(type) {
 	case *JobExecutionError, *JobInvalidError:
@@ -456,10 +437,10 @@ func cli(jobrequest JobRequest, jobsystem JobSystem, config ConfigRoot) {
 	case nil:
 		jobsystem.SetStatus(jobrequest.Id, StatusComplete)
 	}
-	if job.Email != "" {
+	if jobrequest.Email != "" {
 		err = mailer.Send(Mail{
 			config.Mail.Sender,
-			job.Email,
+			jobrequest.Email,
 			fmt.Sprintf(mailTemplate.Subject, string(jobrequest.Id)),
 			fmt.Sprintf(mailTemplate.Body, string(jobrequest.Id)),
 		})
