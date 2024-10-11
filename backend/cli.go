@@ -19,218 +19,8 @@ import (
 	"time"
 )
 
-type JobExecutionError struct {
-	internal error
-}
-
-func (e *JobExecutionError) Error() string {
-	return "Execution Error: " + e.internal.Error()
-}
-
-type JobTimeoutError struct {
-}
-
-func (e *JobTimeoutError) Error() string {
-	return "Timeout"
-}
-
-type JobInvalidError struct {
-}
-
-func (e *JobInvalidError) Error() string {
-	return "Invalid"
-}
-
-func execCommand(verbose bool, parameters ...string) (*exec.Cmd, chan error, error) {
-	cmd := exec.Command(
-		parameters[0],
-		parameters[1:]...,
-	)
-
-	SetSysProcAttr(cmd)
-
-	// Make sure MMseqs2's progress bar doesn't break
-	cmd.Env = append(os.Environ(), "TTY=0")
-
-	if verbose {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-
-	done := make(chan error, 1)
-	err := cmd.Start()
-	if err != nil {
-		return cmd, done, err
-	}
-
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	return cmd, done, err
-}
-
-func RunJob(request JobRequest, config ConfigRoot) (err error) {
+func RunJobByCli(request JobRequest, config ConfigRoot) (err error) {
 	switch job := request.Job.(type) {
-	case SearchJob:
-		resultBase := filepath.Join(config.Paths.Results, string(request.Id))
-		for _, database := range job.Database {
-			params, err := ReadParams(filepath.Join(config.Paths.Databases, database+".params"))
-			if err != nil {
-				return &JobExecutionError{err}
-			}
-			columns := "query,target,pident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,qlen,tlen,qaln,taln"
-			if params.Taxonomy {
-				columns += ",taxid,taxname"
-			}
-			parameters := []string{
-				config.Paths.Mmseqs,
-				"easy-search",
-				filepath.Join(resultBase, "job.fasta"),
-				filepath.Join(config.Paths.Databases, database),
-				filepath.Join(resultBase, "alis_"+database),
-				filepath.Join(resultBase, "tmp"),
-				"--shuffle",
-				"0",
-				"--db-output",
-				"--db-load-mode",
-				"2",
-				"--write-lookup",
-				"1",
-				"--format-output",
-				columns,
-			}
-			parameters = append(parameters, strings.Fields(params.Search)...)
-
-			if job.Mode == "summary" {
-				parameters = append(parameters, "--greedy-best-hits")
-			}
-
-			if params.Taxonomy && job.TaxFilter != "" {
-				parameters = append(parameters, "--taxon-list")
-				parameters = append(parameters, job.TaxFilter)
-			}
-
-			cmd, done, err := execCommand(config.Verbose, parameters...)
-			if err != nil {
-				return &JobExecutionError{err}
-			}
-
-			select {
-			case <-time.After(1 * time.Hour):
-				if err := KillCommand(cmd); err != nil {
-					log.Printf("Failed to kill: %s\n", err)
-				}
-				return &JobTimeoutError{}
-			case err := <-done:
-				if err != nil {
-					return &JobExecutionError{err}
-				}
-			}
-		}
-
-		path := filepath.Join(filepath.Clean(config.Paths.Results), string(request.Id))
-		file, err := os.Create(filepath.Join(path, "mmseqs_results_"+string(request.Id)+".tar.gz"))
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-		err = ResultArchive(file, request.Id, path)
-		if err != nil {
-			file.Close()
-			return &JobExecutionError{err}
-		}
-		err = file.Close()
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-
-		if config.Verbose {
-			log.Print("Process finished gracefully without error")
-		}
-		return nil
-	case StructureSearchJob:
-		resultBase := filepath.Join(config.Paths.Results, string(request.Id))
-		for _, database := range job.Database {
-			params, err := ReadParams(filepath.Join(config.Paths.Databases, database+".params"))
-			if err != nil {
-				return &JobExecutionError{err}
-			}
-			var mode2num = map[string]string{"3di": "0", "tmalign": "1", "3diaa": "2"}
-			mode, found := mode2num[job.Mode]
-			if !found {
-				return &JobExecutionError{errors.New("Invalid mode selected")}
-			}
-			columns := "query,target,pident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,qlen,tlen,qaln,taln,tca,tseq"
-			if params.Taxonomy {
-				columns += ",taxid,taxname"
-			}
-			parameters := []string{
-				config.Paths.FoldSeek,
-				"easy-search",
-				filepath.Join(resultBase, "job.pdb"),
-				filepath.Join(config.Paths.Databases, database),
-				filepath.Join(resultBase, "alis_"+database),
-				filepath.Join(resultBase, "tmp"),
-				// "--shuffle",
-				// "0",
-				"--alignment-type",
-				mode,
-				"--db-output",
-				"--db-load-mode",
-				"2",
-				"--write-lookup",
-				"1",
-				"--format-output",
-				columns,
-			}
-			parameters = append(parameters, strings.Fields(params.Search)...)
-
-			if job.Mode == "summary" {
-				parameters = append(parameters, "--greedy-best-hits")
-			}
-
-			if params.Taxonomy && job.TaxFilter != "" {
-				parameters = append(parameters, "--taxon-list")
-				parameters = append(parameters, job.TaxFilter)
-			}
-
-			cmd, done, err := execCommand(config.Verbose, parameters...)
-			if err != nil {
-				return &JobExecutionError{err}
-			}
-
-			select {
-			case <-time.After(1 * time.Hour):
-				if err := KillCommand(cmd); err != nil {
-					log.Printf("Failed to kill: %s\n", err)
-				}
-				return &JobTimeoutError{}
-			case err := <-done:
-				if err != nil {
-					return &JobExecutionError{err}
-				}
-			}
-		}
-
-		path := filepath.Join(filepath.Clean(config.Paths.Results), string(request.Id))
-		file, err := os.Create(filepath.Join(path, "mmseqs_results_"+string(request.Id)+".tar.gz"))
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-		err = ResultArchive(file, request.Id, path)
-		if err != nil {
-			file.Close()
-			return &JobExecutionError{err}
-		}
-		err = file.Close()
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-
-		if config.Verbose {
-			log.Print("Process finished gracefully without error")
-		}
-		return nil
 	case MsaJob:
 		resultBase := filepath.Join(config.Paths.Results, string(request.Id))
 
@@ -626,39 +416,13 @@ rm -rf -- "${BASE}/tmp"
 			log.Print("Process finished gracefully without error")
 		}
 		return nil
-	case IndexJob:
-		file := filepath.Join(config.Paths.Databases, job.Path)
-		params, err := ReadParams(file + ".params")
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-		params.Status = StatusRunning
-		err = SaveParams(file+".params", params)
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-		err = CheckDatabase(file, params, config)
-		if err != nil {
-			params.Status = StatusError
-			SaveParams(file+".params", params)
-			return &JobExecutionError{err}
-		}
-		if config.Verbose {
-			log.Println("Process finished gracefully without error")
-		}
-		params.Status = StatusComplete
-		err = SaveParams(file+".params", params)
-		if err != nil {
-			return &JobExecutionError{err}
-		}
-		return nil
 	default:
 		return &JobInvalidError{}
 	}
 }
 
-func worker(jobsystem JobSystem, config ConfigRoot) {
-	log.Println("MMseqs2 worker")
+func cli(jobsystem JobSystem, config ConfigRoot) {
+	log.Println("MMseqs2 cli")
 	mailer := MailTransport(NullTransport{})
 	if config.Mail.Mailer != nil {
 		log.Println("Using " + config.Mail.Mailer.Type + " mail transport")
@@ -714,7 +478,7 @@ func worker(jobsystem JobSystem, config ConfigRoot) {
 		}
 
 		jobsystem.SetStatus(ticket.Id, StatusRunning)
-		err = RunJob(job, config)
+		err = RunJobByCli(job, config)
 		mailTemplate := config.Mail.Templates.Success
 		switch err.(type) {
 		case *JobExecutionError, *JobInvalidError:

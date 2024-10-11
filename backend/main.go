@@ -14,6 +14,7 @@ const (
 	LOCAL RunType = iota
 	WORKER
 	SERVER
+	CLI
 )
 
 func ParseType(args []string) (RunType, []string) {
