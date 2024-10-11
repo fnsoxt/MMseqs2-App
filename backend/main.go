@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
@@ -61,9 +62,29 @@ func ParseConfigName(args []string) (string, []string) {
 	return file, resArgs
 }
 
+func ParseRequest(args []string) (string, []string) {
+	resArgs := make([]string, 0)
+	request := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-request" {
+			if i+1 == len(args) {
+				log.Fatal(errors.New("request is not specified"))
+			}
+			request = args[i+1]
+			i++
+			continue
+		}
+
+		resArgs = append(resArgs, args[i])
+	}
+
+	return request, resArgs
+}
+
 func main() {
 	t, args := ParseType(os.Args[1:])
 	configFile, args := ParseConfigName(args)
+	req, args := ParseRequest(args)
 
 	var config ConfigRoot
 	var err error
@@ -90,7 +111,8 @@ func main() {
 	}
 
 	if err := config.CheckPaths(); err != nil {
-		panic(err)
+		// TODO
+		// panic(err)
 	}
 
 	switch t {
@@ -101,6 +123,57 @@ func main() {
 		server(MakeRedisJobSystem(config.Redis), config)
 		break
 	case CLI:
+		jobsystem, err := MakeLocalJobSystem(config.Paths.Results)
+		if err != nil {
+			panic(err)
+		}
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sigs
+			os.Exit(0)
+		}()
+
+		// 生成ticket
+		type Req struct {
+			Query string   `json:"q"`
+			Dbs   []string `json:"dbs"`
+			Mode  string   `json:"mode"`
+			Email string   `json:"email"`
+		}
+
+		var query string
+		var dbs []string
+		var mode string
+		var email string
+
+		var reqMap Req
+		err = json.Unmarshal([]byte(req), &reqMap)
+		if err != nil {
+			log.Println(err)
+		}
+		query = reqMap.Query
+		dbs = reqMap.Dbs
+		mode = reqMap.Mode
+		email = reqMap.Email
+
+		databases, err := Databases(config.Paths.Databases, true)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		// log.Println(reqMap)
+		jobrequest, err := NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email)
+		log.Println(jobrequest.Id)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		result, err := jobsystem.NewJob(jobrequest, config.Paths.Results, false)
+		log.Println(result)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		cli(jobrequest, &jobsystem, config)
+		// 执行程序
 		break
 	case LOCAL:
 		jobsystem, err := MakeLocalJobSystem(config.Paths.Results)

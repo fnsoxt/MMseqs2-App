@@ -5,17 +5,12 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync/atomic"
-	"syscall"
 	"time"
 )
 
@@ -421,7 +416,7 @@ rm -rf -- "${BASE}/tmp"
 	}
 }
 
-func cli(jobsystem JobSystem, config ConfigRoot) {
+func cli(jobrequest JobRequest, jobsystem JobSystem, config ConfigRoot) {
 	log.Println("MMseqs2 cli")
 	mailer := MailTransport(NullTransport{})
 	if config.Mail.Mailer != nil {
@@ -429,79 +424,47 @@ func cli(jobsystem JobSystem, config ConfigRoot) {
 		mailer = config.Mail.Mailer.GetTransport()
 	}
 
-	var shouldExit int32 = 0
-	if config.Worker.GracefulExit {
-		go func() {
-			sig := make(chan os.Signal, 1)
-			signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-			defer signal.Stop(sig)
-			<-sig
-			atomic.StoreInt32(&shouldExit, 1)
-		}()
+	jobFile := filepath.Join(config.Paths.Results, string(jobrequest.Id), "job.json")
+
+	f, err := os.Open(jobFile)
+	if err != nil {
+		jobsystem.SetStatus(jobrequest.Id, StatusError)
+		log.Print(err)
 	}
 
-	for {
-		if config.Worker.GracefulExit && atomic.LoadInt32(&shouldExit) == 1 {
-			return
-		}
-		ticket, err := jobsystem.Dequeue()
+	var job JobRequest
+	dec := json.NewDecoder(bufio.NewReader(f))
+	err = dec.Decode(&job)
+	f.Close()
+	if err != nil {
+		jobsystem.SetStatus(jobrequest.Id, StatusError)
+		log.Print(err)
+	}
+
+	jobsystem.SetStatus(jobrequest.Id, StatusRunning)
+	err = RunJobByCli(job, config)
+	mailTemplate := config.Mail.Templates.Success
+	switch err.(type) {
+	case *JobExecutionError, *JobInvalidError:
+		jobsystem.SetStatus(jobrequest.Id, StatusError)
+		log.Print(err)
+		mailTemplate = config.Mail.Templates.Error
+	case *JobTimeoutError:
+		jobsystem.SetStatus(jobrequest.Id, StatusError)
+		log.Print(err)
+		mailTemplate = config.Mail.Templates.Timeout
+	case nil:
+		jobsystem.SetStatus(jobrequest.Id, StatusComplete)
+	}
+	if job.Email != "" {
+		err = mailer.Send(Mail{
+			config.Mail.Sender,
+			job.Email,
+			fmt.Sprintf(mailTemplate.Subject, string(jobrequest.Id)),
+			fmt.Sprintf(mailTemplate.Body, string(jobrequest.Id)),
+		})
 		if err != nil {
-			if ticket != nil {
-				log.Print(err)
-			}
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
-		if ticket == nil && err == nil {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
-		jobFile := filepath.Join(config.Paths.Results, string(ticket.Id), "job.json")
-
-		f, err := os.Open(jobFile)
-		if err != nil {
-			jobsystem.SetStatus(ticket.Id, StatusError)
 			log.Print(err)
-			continue
-		}
-
-		var job JobRequest
-		dec := json.NewDecoder(bufio.NewReader(f))
-		err = dec.Decode(&job)
-		f.Close()
-		if err != nil {
-			jobsystem.SetStatus(ticket.Id, StatusError)
-			log.Print(err)
-			continue
-		}
-
-		jobsystem.SetStatus(ticket.Id, StatusRunning)
-		err = RunJobByCli(job, config)
-		mailTemplate := config.Mail.Templates.Success
-		switch err.(type) {
-		case *JobExecutionError, *JobInvalidError:
-			jobsystem.SetStatus(ticket.Id, StatusError)
-			log.Print(err)
-			mailTemplate = config.Mail.Templates.Error
-		case *JobTimeoutError:
-			jobsystem.SetStatus(ticket.Id, StatusError)
-			log.Print(err)
-			mailTemplate = config.Mail.Templates.Timeout
-		case nil:
-			jobsystem.SetStatus(ticket.Id, StatusComplete)
-		}
-		if job.Email != "" {
-			err = mailer.Send(Mail{
-				config.Mail.Sender,
-				job.Email,
-				fmt.Sprintf(mailTemplate.Subject, string(ticket.Id)),
-				fmt.Sprintf(mailTemplate.Body, string(ticket.Id)),
-			})
-			if err != nil {
-				log.Print(err)
-			}
 		}
 	}
 }
