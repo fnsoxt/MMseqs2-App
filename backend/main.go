@@ -163,7 +163,7 @@ func main() {
 			log.Fatal(err.Error())
 		}
 		// log.Println(reqMap)
-		if mode[:3] == "pair" {
+		if mode[:4] == "pair" {
 			jobrequest, err = NewPairJobRequest(query, mode, email)
 			if err != nil {
 				log.Fatal(err.Error())
