@@ -1,0 +1,56 @@
+{
+    "app": "colabfold",
+    "verbose": true,
+    "server" : {
+        // you might want to change the port
+        "address"    : "0.0.0.0:8888",
+        "dbmanagment": false,
+        "cors"       : true
+    },
+    "paths" : {
+        "databases"    : "/home/xukui/colabfolddb",
+        "results"      : "/home/xukui/jobs",
+        "temporary"    : "/home/xukui/tmp",
+        "colabfold"    : {
+            // disable parallel stage execution if you plan to use exactly #workers of CPU-cores
+            // this will ~2-3x speedup the execution, while requiring more cores
+            "parallelstages": true,
+            "uniref"        : "/home/xukui/colabfolddb/uniref30_2202_db",
+            "pdb"           : "/home/xukui/colabfolddb/pdb70_220313",
+            "environmental" : "/home/xukui/colabfolddb/colabfold_envdb_202108_db",
+            "pdb70"         : "/home/xukui/colabfolddb/pdb70",
+            "pdbdivided"    : "/home/xukui/colabfolddb/pdb/divided",
+            "pdbobsolete"   : "/home/xukui/colabfolddb/pdb/obsolete"
+        },
+        "mmseqs"       : "/home/xukui/msaserver/mmseqs/bin/mmseqs"
+    },
+    "local" : {
+        // this will allow up to 16 jobs at the same time
+        "workers"  : 16
+    },
+    // ignore the rest, redis is not used here
+    "redis" : {
+        "network"  : "tcp",
+        "address"  : "mmseqs-web-redis:6379",
+        "password" : "",
+        "index"    : 0
+    },
+    "mail" : {
+        "type"      : "null",
+        "sender"    : "mail@example.org",
+        "templates" : {
+            "success" : {
+                "subject" : "Done -- %s",
+                "body"    : "Dear User,\nThe results of your submitted job are available now at https://search.mmseqs.com/queue/%s .\n"
+            },
+            "timeout" : {
+                "subject" : "Timeout -- %s",
+                "body"    : "Dear User,\nYour submitted job timed out. More details are available at https://search.mmseqs.com/queue/%s .\nPlease adjust the job and submit it again.\n"
+            },
+            "error"   : {
+                "subject" : "Error -- %s",
+                "body"    : "Dear User,\nYour submitted job failed. More details are available at https://search.mmseqs.com/queue/%s .\nPlease submit your job later again.\n"
+            }
+        }
+    }
+}

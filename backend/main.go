@@ -162,7 +162,7 @@ func main() {
 		}
 		// log.Println(reqMap)
 		jobrequest, err := NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email)
-		log.Println(jobrequest.Id)
+		// log.Println(jobrequest.Id)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
