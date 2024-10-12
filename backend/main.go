@@ -141,6 +141,8 @@ func main() {
 			Email string   `json:"email"`
 		}
 
+		var jobrequest JobRequest
+
 		var query string
 		var dbs []string
 		var mode string
@@ -161,11 +163,18 @@ func main() {
 			log.Fatal(err.Error())
 		}
 		// log.Println(reqMap)
-		jobrequest, err := NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email)
-		// log.Println(jobrequest.Id)
-		if err != nil {
-			log.Fatal(err.Error())
+		if mode[:3] == "pair" {
+			jobrequest, err = NewPairJobRequest(query, mode, email)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+		} else {
+			jobrequest, err = NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
 		}
+		// log.Println(jobrequest.Id)
 		result, err := jobsystem.NewJob(jobrequest, config.Paths.Results, false)
 		log.Println(result)
 		if err != nil {
