@@ -1,7 +1,15 @@
 package main
 
 import (
+	"path/filepath"
+	"io/ioutil"
+	"time"
+	"fmt"
+	"sort"
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
+	"strings"
 	"errors"
 	"log"
 	"os"
@@ -16,6 +24,7 @@ const (
 	WORKER
 	SERVER
 	CLI
+	TEMPLATE
 )
 
 func ParseType(args []string) (RunType, []string) {
@@ -34,6 +43,9 @@ func ParseType(args []string) (RunType, []string) {
 			continue
 		case "-cli":
 			t = CLI
+			continue
+		case "-template":
+			t = TEMPLATE
 			continue
 		}
 
@@ -62,6 +74,25 @@ func ParseConfigName(args []string) (string, []string) {
 	return file, resArgs
 }
 
+func ParseTemplateParams(args []string) (string, []string) {
+	resArgs := make([]string, 0)
+	templateParams := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-name" {
+			if i+1 == len(args) {
+				log.Fatal(errors.New("template name is not specified"))
+			}
+			templateParams = args[i+1]
+			i++
+			continue
+		}
+
+		resArgs = append(resArgs, args[i])
+	}
+
+	return templateParams, resArgs
+}
+
 func ParseRequest(args []string) (string, []string) {
 	resArgs := make([]string, 0)
 	request := ""
@@ -81,9 +112,11 @@ func ParseRequest(args []string) (string, []string) {
 	return request, resArgs
 }
 
+
 func main() {
 	t, args := ParseType(os.Args[1:])
 	configFile, args := ParseConfigName(args)
+	templateParams, args:= ParseTemplateParams(args)
 	req, args := ParseRequest(args)
 
 	var config ConfigRoot
@@ -120,6 +153,106 @@ func main() {
 		break
 	case SERVER:
 		server(MakeRedisJobSystem(config.Redis), config)
+		break
+	case TEMPLATE:
+		log.Println(templateParams)
+		w, err := os.Create("templates.tar.gz")
+		if err != nil {
+			panic(err)
+		}
+		gw := gzip.NewWriter(w)
+		tw := tar.NewWriter(gw)
+
+		uniques := make([]string, 1)
+		uniquesWithoutChains := make([]string, 1)
+		slice := strings.Split(templateParams, "_")
+		if len(slice) != 2 {
+			panic("template param error")
+		}
+		uniques = append(uniques, templateParams)
+		uniquesWithoutChains = append(uniquesWithoutChains, slice[0])
+		uniques = unique(uniques)
+		uniquesWithoutChains = unique(uniquesWithoutChains)
+		sort.Strings(uniques)
+		sort.Strings(uniquesWithoutChains)
+
+		a3mOffset := 0
+		a3mData := strings.Builder{}
+		a3mIndex := strings.Builder{}
+		a3m := Reader[string]{}
+
+		for i := 0; i < len(uniques); i++ {
+			a3mid, ok := a3m.Id(uniques[i])
+			if ok == false {
+				continue
+			}
+
+			entry := a3m.Data(a3mid)
+			entryLen := len(entry) + 1
+			a3mData.WriteString(entry)
+			a3mData.WriteRune(rune(0))
+			a3mIndex.WriteString(fmt.Sprintf("%s\t%d\t%d\n", uniques[i], a3mOffset, entryLen))
+			a3mOffset += entryLen
+		}
+
+		now := time.Now()
+		if err := AddTarEntry(tw, "pdb70_a3m.ffdata", a3mData.String(), now); err != nil {
+			panic(err)
+		}
+		if err := AddTarEntry(tw, "pdb70_a3m.ffindex", a3mIndex.String(), now); err != nil {
+			panic(err)
+		}
+
+		for i := 0; i < len(uniquesWithoutChains); i++ {
+			pdbacc := strings.ToLower(uniquesWithoutChains[i])
+			if len(pdbacc) < 4 {
+				fmt.Errorf("Invalid PDB accession %s", pdbacc)
+			}
+
+			pdbmid := pdbacc[1:3]
+			pdbdivided := config.Paths.ColabFold.PdbDivided
+			pdbobsolete := config.Paths.ColabFold.PdbObsolete
+
+			file, err := os.Open(filepath.Join(pdbdivided, pdbmid, pdbacc+".cif.gz"))
+			if errors.Is(err, os.ErrNotExist) {
+				file, err = os.Open(filepath.Join(pdbobsolete, pdbmid, pdbacc+".cif.gz"))
+				if err != nil {
+					panic(err)
+				}
+			} else if err != nil {
+				panic(err)
+			}
+
+			reader, err := gzip.NewReader(file)
+			if err != nil {
+				panic(err)
+			}
+
+			cif, err := ioutil.ReadAll(reader)
+			if err != nil {
+				panic(err)
+			}
+
+			if err := AddTarEntry(tw, pdbacc+".cif", string(cif), now); err != nil {
+				panic(err)
+			}
+
+			if err := reader.Close(); err != nil {
+				panic(err)
+			}
+
+			if err := file.Close(); err != nil {
+				panic(err)
+			}
+		}
+
+		if err := tw.Close(); err != nil {
+			panic(err)
+		}
+
+		if err := gw.Close(); err != nil {
+			panic(err)
+		}
 		break
 	case CLI:
 		jobsystem, err := MakeLocalJobSystem(config.Paths.Results)
