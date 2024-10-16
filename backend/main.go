@@ -116,6 +116,7 @@ func ParseRequest(args []string) (string, []string) {
 func main() {
 	t, args := ParseType(os.Args[1:])
 	configFile, args := ParseConfigName(args)
+	log.Println(configFile)
 	templateParams, args:= ParseTemplateParams(args)
 	req, args := ParseRequest(args)
 
