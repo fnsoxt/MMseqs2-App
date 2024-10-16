@@ -180,6 +180,11 @@ func main() {
 		a3mData := strings.Builder{}
 		a3mIndex := strings.Builder{}
 		a3m := Reader[string]{}
+		base := config.Paths.ColabFold.Pdb70 + "_a3m"
+		err = a3m.Make(base+".ffdata", base+".ffindex")
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		for i := 0; i < len(uniques); i++ {
 			a3mid, ok := a3m.Id(uniques[i])
