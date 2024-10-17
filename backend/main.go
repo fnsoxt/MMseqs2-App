@@ -166,12 +166,16 @@ func main() {
 
 		uniques := make([]string, 1)
 		uniquesWithoutChains := make([]string, 1)
-		slice := strings.Split(templateParams, "_")
-		if len(slice) != 2 {
-			panic("template param error")
+		templates := strings.Split(templateParams, ",")
+		for i := 0; i < len(templates); i++ {
+			key := templates[i]
+			slice := strings.Split(key, "_")
+			if len(slice) != 2 {
+				continue
+			}
+			uniques = append(uniques, key)
+			uniquesWithoutChains = append(uniquesWithoutChains, slice[0])
 		}
-		uniques = append(uniques, templateParams)
-		uniquesWithoutChains = append(uniquesWithoutChains, slice[0])
 		uniques = unique(uniques)
 		uniquesWithoutChains = unique(uniquesWithoutChains)
 		sort.Strings(uniques)
