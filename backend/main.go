@@ -99,7 +99,7 @@ func ParsePrefixParams(args []string) (string, []string) {
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-prefix" {
 			if i+1 == len(args) {
-				log.Fatal(errors.New("template name is not specified"))
+				log.Fatal(errors.New("prefix is not specified"))
 			}
 			prefixParams = args[i+1]
 			i++
