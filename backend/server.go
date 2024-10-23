@@ -364,7 +364,7 @@ func server(jobsystem JobSystem, config ConfigRoot) {
 			return
 		}
 
-		request, err = NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email)
+		request, err = NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email, "")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -418,7 +418,7 @@ func server(jobsystem JobSystem, config ConfigRoot) {
 			email = req.FormValue("email")
 		}
 
-		request, err := NewPairJobRequest(query, mode, email)
+		request, err := NewPairJobRequest(query, mode, email, "")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

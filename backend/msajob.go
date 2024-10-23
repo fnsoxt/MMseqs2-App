@@ -16,7 +16,7 @@ type MsaJob struct {
 	query    string
 }
 
-func (r MsaJob) Hash() Id {
+func (r MsaJob) Hash(prefix string) Id {
 	h := sha256.New224()
 	h.Write([]byte(r.query))
 	h.Write([]byte(r.Mode))
@@ -28,7 +28,7 @@ func (r MsaJob) Hash() Id {
 	}
 
 	bs := h.Sum(nil)
-	return Id(base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bs))
+	return Id(prefix + base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bs))
 }
 
 func (r MsaJob) Rank() float64 {
@@ -43,7 +43,7 @@ func (r MsaJob) WriteFasta(path string) error {
 	return nil
 }
 
-func NewMsaJobRequest(query string, dbs []string, validDbs []Params, mode string, resultPath string, email string) (JobRequest, error) {
+func NewMsaJobRequest(query string, dbs []string, validDbs []Params, mode string, resultPath string, email string, prefix string) (JobRequest, error) {
 	job := MsaJob{
 		max(strings.Count(query, ">"), 1),
 		dbs,
@@ -52,7 +52,7 @@ func NewMsaJobRequest(query string, dbs []string, validDbs []Params, mode string
 	}
 
 	request := JobRequest{
-		job.Hash(),
+		job.Hash(prefix),
 		StatusPending,
 		JobMsa,
 		job,

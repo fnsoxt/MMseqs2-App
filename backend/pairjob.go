@@ -13,13 +13,13 @@ type PairJob struct {
 	query string
 }
 
-func (r PairJob) Hash() Id {
+func (r PairJob) Hash(prefix string) Id {
 	h := sha256.New224()
 	h.Write([]byte(r.query))
 	h.Write([]byte(r.Mode))
 
 	bs := h.Sum(nil)
-	return Id(base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bs))
+	return Id(prefix + base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bs))
 }
 
 func (r PairJob) Rank() float64 {
@@ -34,7 +34,7 @@ func (r PairJob) WriteFasta(path string) error {
 	return nil
 }
 
-func NewPairJobRequest(query string, mode string, mail string) (JobRequest, error) {
+func NewPairJobRequest(query string, mode string, mail string, prefix string) (JobRequest, error) {
 	job := PairJob{
 		max(strings.Count(query, ">"), 1),
 		mode,
@@ -42,7 +42,7 @@ func NewPairJobRequest(query string, mode string, mail string) (JobRequest, erro
 	}
 
 	request := JobRequest{
-		job.Hash(),
+		job.Hash(prefix),
 		StatusPending,
 		JobPair,
 		job,

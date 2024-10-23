@@ -93,6 +93,25 @@ func ParseTemplateParams(args []string) (string, []string) {
 	return templateParams, resArgs
 }
 
+func ParsePrefixParams(args []string) (string, []string) {
+	resArgs := make([]string, 0)
+	prefixParams := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-prefix" {
+			if i+1 == len(args) {
+				log.Fatal(errors.New("template name is not specified"))
+			}
+			prefixParams = args[i+1]
+			i++
+			continue
+		}
+
+		resArgs = append(resArgs, args[i])
+	}
+
+	return prefixParams, resArgs
+}
+
 func ParseRequest(args []string) (string, []string) {
 	resArgs := make([]string, 0)
 	request := ""
@@ -115,8 +134,10 @@ func ParseRequest(args []string) (string, []string) {
 
 func main() {
 	t, args := ParseType(os.Args[1:])
+	log.Println(args)
 	configFile, args := ParseConfigName(args)
 	log.Println(configFile)
+	prefixParams, args:= ParsePrefixParams(args)
 	templateParams, args:= ParseTemplateParams(args)
 	req, args := ParseRequest(args)
 
@@ -307,12 +328,12 @@ func main() {
 		}
 		// log.Println(reqMap)
 		if len(mode)>4 && mode[:4] == "pair" {
-			jobrequest, err = NewPairJobRequest(query, mode, email)
+			jobrequest, err = NewPairJobRequest(query, mode, email, prefixParams)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
 		} else {
-			jobrequest, err = NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email)
+			jobrequest, err = NewMsaJobRequest(query, dbs, databases, mode, config.Paths.Results, email, prefixParams)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
