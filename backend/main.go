@@ -26,6 +26,7 @@ const (
 	CLI
 	TEMPLATE
 )
+const useJobid = false
 
 func ParseType(args []string) (RunType, []string) {
 	resArgs := make([]string, 0)

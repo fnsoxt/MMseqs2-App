@@ -51,8 +51,14 @@ func NewMsaJobRequest(query string, dbs []string, validDbs []Params, mode string
 		query,
 	}
 
+	var jobid Id
+	if useJobid {
+		jobid = job.Hash(prefix)
+	} else {
+		jobid = Id(prefix)
+	}
 	request := JobRequest{
-		job.Hash(prefix),
+		jobid,
 		StatusPending,
 		JobMsa,
 		job,

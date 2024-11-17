@@ -40,9 +40,14 @@ func NewPairJobRequest(query string, mode string, mail string, prefix string) (J
 		mode,
 		query,
 	}
-
+	var jobid Id
+	if useJobid {
+		jobid = job.Hash(prefix)
+	} else {
+		jobid = Id(prefix)
+	}
 	request := JobRequest{
-		job.Hash(prefix),
+		jobid,
 		StatusPending,
 		JobPair,
 		job,
