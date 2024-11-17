@@ -14,7 +14,7 @@ import (
 )
 
 var defaultFileContent = []byte(`{
-	// One of: mmseqs,foldseek,colabfold,predictprotein
+	// One of: mmseqs,foldseek,colabfold,predictprotein,msa-cli
 	"app": "mmseqs",
     // should mmseqs und webserver output be printed
     "verbose": true,
@@ -212,11 +212,12 @@ const (
 	AppMMseqs2        ConfigApp = "mmseqs"
 	AppFoldSeek       ConfigApp = "foldseek"
 	AppColabFold      ConfigApp = "colabfold"
+	AppMsaCli         ConfigApp = "msa-cli"
 	AppPredictProtein ConfigApp = "predictprotein"
 )
 
 type ConfigRoot struct {
-	App     ConfigApp    `json:"app" validate:"oneof=mmseqs foldseek colabfold predictprotein"`
+	App     ConfigApp    `json:"app" validate:"oneof=mmseqs foldseek colabfold predictprotein msa-cli"`
 	Server  ConfigServer `json:"server"`
 	Worker  ConfigWorker `json:"worker"`
 	Paths   ConfigPaths  `json:"paths" validate:"required"`

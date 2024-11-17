@@ -455,20 +455,20 @@ func server(jobsystem JobSystem, config ConfigRoot) {
 		if config.App == AppMMseqs2 || config.App == AppFoldSeek {
 			r.Handle("/ticket", tollbooth.LimitFuncHandler(lmt, ticketHandlerFunc)).Methods("POST")
 		}
-		if config.App == AppColabFold || config.App == AppPredictProtein {
+		if config.App == AppMsaCli || config.App == AppPredictProtein {
 			r.Handle("/ticket/msa", tollbooth.LimitFuncHandler(lmt, ticketMsaHandlerFunc)).Methods("POST")
 		}
-		if config.App == AppColabFold {
+		if config.App == AppMsaCli {
 			r.Handle("/ticket/pair", tollbooth.LimitFuncHandler(lmt, ticketPairHandlerFunc)).Methods("POST")
 		}
 	} else {
 		if config.App == AppMMseqs2 || config.App == AppFoldSeek {
 			r.HandleFunc("/ticket", ticketHandlerFunc).Methods("POST")
 		}
-		if config.App == AppColabFold || config.App == AppPredictProtein {
+		if config.App == AppMsaCli || config.App == AppPredictProtein {
 			r.HandleFunc("/ticket/msa", ticketMsaHandlerFunc).Methods("POST")
 		}
-		if config.App == AppColabFold {
+		if config.App == AppMsaCli {
 			r.HandleFunc("/ticket/pair", ticketPairHandlerFunc).Methods("POST")
 		}
 	}
@@ -694,7 +694,7 @@ func server(jobsystem JobSystem, config ConfigRoot) {
 		}
 	}).Methods("GET")
 
-	if config.App == AppColabFold {
+	if config.App == AppMsaCli {
 		a3mreader := Reader[string]{}
 		base := config.Paths.ColabFold.Pdb70 + "_a3m"
 		err := a3mreader.Make(base+".ffdata", base+".ffindex")
