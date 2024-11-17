@@ -198,7 +198,7 @@ type ConfigWorker struct {
 }
 
 type ConfigServer struct {
-	Address     string           `json:"address" validate:"required"`
+	Address     string           `json:"address"`
 	PathPrefix  string           `json:"pathprefix"`
 	DbManagment bool             `json:"dbmanagment"`
 	CORS        bool             `json:"cors"`
@@ -217,7 +217,7 @@ const (
 
 type ConfigRoot struct {
 	App     ConfigApp    `json:"app" validate:"oneof=mmseqs foldseek colabfold predictprotein"`
-	Server  ConfigServer `json:"server" validate:"required"`
+	Server  ConfigServer `json:"server"`
 	Worker  ConfigWorker `json:"worker"`
 	Paths   ConfigPaths  `json:"paths" validate:"required"`
 	Redis   ConfigRedis  `json:"redis"`
