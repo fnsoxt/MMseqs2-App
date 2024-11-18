@@ -8,6 +8,12 @@ export PATH=$PATH:~/go/bin
 go version
 ```
 
+## conda install
+```
+conda install anaconda::go
+go version
+```
+
 ## Usage
 ```
 mkdir msa-server
