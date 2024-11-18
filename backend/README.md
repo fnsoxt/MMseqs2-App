@@ -3,11 +3,15 @@
 ## install golang 1.18
 ```
 wget https://golang.google.cn/dl/go1.18.10.linux-amd64.tar.gz
-tar -xzf go1.18.10.linux-amd64.tar.gz -C ~/go
+tar -xzf go1.18.10.linux-amd64.tar.gz -C ~/
 export PATH=$PATH:~/go/bin
 go version
 ```
+
 ## Usage
 ```
-go build --mod=vendor -O msa-server
+mkdir msa-server
+tar -xzf msa-server.tar.gz -C msa-server
+cd msa-server
+go build --mod=vendor -o msa-server
 ```
